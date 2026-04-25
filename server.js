@@ -30,34 +30,29 @@ app.get("/", (req, res) => {
 
 // 🟢 AGENT CARD (FIXED FOR PROMPT OPINION)
 app.get("/.well-known/agent.json", (req, res) => {
-    console.log("🔥 Agent card requested");
-
     res.setHeader("Content-Type", "application/json");
 
-    res.send(JSON.stringify({
+    return res.end(JSON.stringify({
         name: "External Healthcare Agent",
         version: "1.0.0",
-        description: "External agent that invokes MCP to fetch patient data using FHIR context",
-        server: {
-            base_url: "https://external-agent.onrender.com"
-        },
-        capabilities: {
-            actions: [
-                {
-                    name: "ask",
-                    description: "Ask healthcare-related questions",
-                    endpoint: "/ask",
-                    method: "POST",
-                    input_schema: {
-                        type: "object",
-                        properties: {
-                            question: { type: "string" }
-                        },
-                        required: ["question"]
-                    }
+        protocol: "A2A",
+        description: "External agent for healthcare MCP",
+
+        actions: [
+            {
+                name: "ask",
+                description: "Ask healthcare questions",
+                method: "POST",
+                path: "/ask",
+                input_schema: {
+                    type: "object",
+                    properties: {
+                        question: { type: "string" }
+                    },
+                    required: ["question"]
                 }
-            ]
-        }
+            }
+        ]
     }));
 });
 
