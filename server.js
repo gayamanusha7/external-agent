@@ -1,29 +1,40 @@
 import express from "express";
-import cors from "cors";
 
 const app = express();
 
-// 🔥 IMPORTANT: enable CORS (fixes HTTP failed)
-app.use(cors());
+// 🔥 Manual CORS (no dependency needed)
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+
+    if (req.method === "OPTIONS") {
+        return res.sendStatus(200);
+    }
+
+    next();
+});
 
 app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 
-// 👉 Your MCP URL
+// 👉 MCP URL
 const MCP_URL = "https://healthcare-ai-6sn2.onrender.com";
 
-// 🟢 Root check
+// 🟢 Root
 app.get("/", (req, res) => {
     res.send("External Agent Running 🚀");
 });
 
 
-// 🟢 AGENT CARD (UPDATED - REQUIRED FOR A2A CHECK)
+// 🟢 AGENT CARD (FIXED FOR PROMPT OPINION)
 app.get("/.well-known/agent.json", (req, res) => {
     console.log("🔥 Agent card requested");
 
-    res.json({
+    res.setHeader("Content-Type", "application/json");
+
+    res.send(JSON.stringify({
         name: "External Healthcare Agent",
         version: "1.0.0",
         description: "External agent that invokes MCP to fetch patient data using FHIR context",
@@ -47,35 +58,33 @@ app.get("/.well-known/agent.json", (req, res) => {
                 }
             ]
         }
-    });
+    }));
 });
 
 
-// 🟢 MAIN AGENT LOGIC
+// 🟢 MAIN AGENT
 app.post("/ask", async (req, res) => {
     const { question } = req.body;
 
     try {
-        // 👉 Extract FHIR headers if available
+        console.log("🔥 External Agent Called");
+
         const fhirBaseUrl = req.headers["x-fhir-server-url"];
         const patientId = req.headers["x-patient-id"];
         const token = req.headers["x-fhir-access-token"];
 
-        console.log("🔥 External Agent Called");
         console.log("Headers:", { fhirBaseUrl, patientId });
 
-        // 👉 Decide tool
         const toolName = question?.toLowerCase().includes("patient")
             ? "get_patient_summary"
             : null;
 
         if (!toolName) {
             return res.json({
-                message: "No relevant tool found for this question"
+                message: "No relevant tool found"
             });
         }
 
-        // 👉 Call MCP using JSON-RPC
         const mcpResponse = await fetch(MCP_URL, {
             method: "POST",
             headers: {
@@ -99,10 +108,13 @@ app.post("/ask", async (req, res) => {
 
         const data = await mcpResponse.json();
 
+        // 🔥 Clean response for demo
+        const content = data?.result?.content?.[0]?.text;
+
         return res.json({
-            question,
             agent: "External Healthcare Agent",
-            mcp_response: data
+            question,
+            response: content ? JSON.parse(content) : data
         });
 
     } catch (error) {
