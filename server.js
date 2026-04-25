@@ -1,6 +1,11 @@
 import express from "express";
+import cors from "cors";
 
 const app = express();
+
+// 🔥 IMPORTANT: enable CORS (fixes HTTP failed)
+app.use(cors());
+
 app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
@@ -14,12 +19,17 @@ app.get("/", (req, res) => {
 });
 
 
-// 🟢 AGENT CARD (VERY IMPORTANT)
+// 🟢 AGENT CARD (UPDATED - REQUIRED FOR A2A CHECK)
 app.get("/.well-known/agent.json", (req, res) => {
+    console.log("🔥 Agent card requested");
+
     res.json({
         name: "External Healthcare Agent",
         version: "1.0.0",
         description: "External agent that invokes MCP to fetch patient data using FHIR context",
+        server: {
+            base_url: "https://external-agent.onrender.com"
+        },
         capabilities: {
             actions: [
                 {
@@ -54,7 +64,7 @@ app.post("/ask", async (req, res) => {
         console.log("🔥 External Agent Called");
         console.log("Headers:", { fhirBaseUrl, patientId });
 
-        // 👉 Decide tool (simple logic)
+        // 👉 Decide tool
         const toolName = question?.toLowerCase().includes("patient")
             ? "get_patient_summary"
             : null;
@@ -96,6 +106,8 @@ app.post("/ask", async (req, res) => {
         });
 
     } catch (error) {
+        console.error("❌ Error:", error.message);
+
         return res.status(500).json({
             error: error.message
         });
