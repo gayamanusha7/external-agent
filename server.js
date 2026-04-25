@@ -30,46 +30,41 @@ app.get("/", (req, res) => {
 
 // 🟢 AGENT CARD (FIXED FOR PROMPT OPINION)
 app.get("/.well-known/agent.json", (req, res) => {
-    res.status(200);
-    res.setHeader("Content-Type", "application/json");
-    res.setHeader("Cache-Control", "no-store");
-
-    return res.json({
+    res.status(200).json({
         name: "External Healthcare Agent",
         description: "Healthcare agent using MCP",
         version: "1.0.0",
         protocol: "a2a",
-        url: "https://external-agent.onrender.com",
 
-        actions: [
-            {
-                name: "ask",
-                description: "Ask healthcare questions",
-                method: "POST",
-                path: "/ask",
+        base_url: "https://external-agent-production.up.railway.app",
 
-                // 🔥 THIS IS THE IMPORTANT PART
-                request_schema: {
-                    type: "object",
-                    properties: {
-                        question: {
-                            type: "string",
-                            description: "User question"
-                        }
+        capabilities: {
+            actions: [
+                {
+                    name: "ask",
+                    description: "Ask healthcare questions",
+
+                    // 🔥 IMPORTANT FIELD NAMES
+                    method: "POST",
+                    path: "/ask",
+
+                    // 🔥 REQUIRED BY VALIDATOR
+                    input_schema: {
+                        type: "object",
+                        properties: {
+                            question: {
+                                type: "string"
+                            }
+                        },
+                        required: ["question"]
                     },
-                    required: ["question"]
-                },
 
-                response_schema: {
-                    type: "object",
-                    properties: {
-                        response: {
-                            type: "object"
-                        }
+                    output_schema: {
+                        type: "object"
                     }
                 }
-            }
-        ]
+            ]
+        }
     });
 });
 
