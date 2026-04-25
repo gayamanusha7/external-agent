@@ -29,7 +29,7 @@ app.get("/", (req, res) => {
 
 
 // 🟢 AGENT CARD (FIXED FOR PROMPT OPINION)
-app.get("/.well-known/agent.json", (req, res) => {
+app.get("/.well-known/agent-card.json", (req, res) => {
     res.status(200).json({
         openapi: "3.0.0",
         info: {
