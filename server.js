@@ -30,26 +30,48 @@ app.get("/", (req, res) => {
 
 // 🟢 AGENT CARD (FIXED FOR PROMPT OPINION)
 app.get("/.well-known/agent.json", (req, res) => {
+    res.status(200);
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Cache-Control", "no-store");
 
-    return res.end(`{
-        "name": "External Healthcare Agent",
-        "description": "Healthcare agent using MCP",
-        "url": "https://external-agent.onrender.com",
-        "version": "1.0.0",
-        "protocol": "a2a",
-        "actions": [
+    return res.json({
+        name: "External Healthcare Agent",
+        description: "Healthcare agent using MCP",
+        version: "1.0.0",
+        protocol: "a2a",
+        url: "https://external-agent.onrender.com",
+
+        actions: [
             {
-                "name": "ask",
-                "description": "Ask healthcare questions",
-                "method": "POST",
-                "path": "/ask"
+                name: "ask",
+                description: "Ask healthcare questions",
+                method: "POST",
+                path: "/ask",
+
+                // 🔥 THIS IS THE IMPORTANT PART
+                request_schema: {
+                    type: "object",
+                    properties: {
+                        question: {
+                            type: "string",
+                            description: "User question"
+                        }
+                    },
+                    required: ["question"]
+                },
+
+                response_schema: {
+                    type: "object",
+                    properties: {
+                        response: {
+                            type: "object"
+                        }
+                    }
+                }
             }
         ]
-    }`);
+    });
 });
-
 
 // 🟢 MAIN AGENT
 app.post("/ask", async (req, res) => {
