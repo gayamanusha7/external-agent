@@ -33,28 +33,21 @@ app.get("/.well-known/agent.json", (req, res) => {
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Cache-Control", "no-store");
 
-    return res.end(JSON.stringify({
-        name: "External Healthcare Agent",
-        version: "1.0.0",
-        protocol: "A2A",
-        description: "External agent for healthcare MCP",
-
-        actions: [
+    return res.end(`{
+        "name": "External Healthcare Agent",
+        "description": "Healthcare agent using MCP",
+        "url": "https://external-agent.onrender.com",
+        "version": "1.0.0",
+        "protocol": "a2a",
+        "actions": [
             {
-                name: "ask",
-                description: "Ask healthcare questions",
-                method: "POST",
-                path: "/ask",
-                input_schema: {
-                    type: "object",
-                    properties: {
-                        question: { type: "string" }
-                    },
-                    required: ["question"]
-                }
+                "name": "ask",
+                "description": "Ask healthcare questions",
+                "method": "POST",
+                "path": "/ask"
             }
         ]
-    }));
+    }`);
 });
 
 
