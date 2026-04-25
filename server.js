@@ -31,42 +31,52 @@ app.get("/", (req, res) => {
 // 🟢 AGENT CARD (FIXED FOR PROMPT OPINION)
 app.get("/.well-known/agent.json", (req, res) => {
     res.status(200).json({
-        name: "External Healthcare Agent",
-        description: "Healthcare agent using MCP",
-        version: "1.0.0",
-        protocol: "a2a",
-
-        base_url: "https://external-agent-production.up.railway.app",
-
-        capabilities: {
-            actions: [
-                {
-                    name: "ask",
-                    description: "Ask healthcare questions",
-
-                    method: "POST",
-                    path: "/ask",
-
-                    input_schema: {
-                        type: "object",
-                        properties: {
-                            question: {
-                                type: "string"
+        openapi: "3.0.0",
+        info: {
+            title: "External Healthcare Agent",
+            version: "1.0.0",
+            description: "External agent using MCP"
+        },
+        servers: [
+            {
+                url: "https://external-agent-production.up.railway.app"
+            }
+        ],
+        paths: {
+            "/ask": {
+                post: {
+                    summary: "Ask healthcare question",
+                    operationId: "ask",
+                    requestBody: {
+                        required: true,
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        question: {
+                                            type: "string"
+                                        }
+                                    },
+                                    required: ["question"]
+                                }
                             }
-                        },
-                        required: ["question"]
+                        }
                     },
-
-                    output_schema: {
-                        type: "object",
-                        properties: {
-                            response: {
-                                type: "object"
+                    responses: {
+                        "200": {
+                            description: "Successful response",
+                            content: {
+                                "application/json": {
+                                    schema: {
+                                        type: "object"
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            ]
+            }
         }
     });
 });
