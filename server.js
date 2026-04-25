@@ -31,6 +31,7 @@ app.get("/", (req, res) => {
 // 🟢 AGENT CARD (FIXED FOR PROMPT OPINION)
 app.get("/.well-known/agent.json", (req, res) => {
     res.setHeader("Content-Type", "application/json");
+    res.setHeader("Cache-Control", "no-store");
 
     return res.end(JSON.stringify({
         name: "External Healthcare Agent",
