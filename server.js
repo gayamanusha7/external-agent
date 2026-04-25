@@ -31,56 +31,40 @@ app.get("/", (req, res) => {
 // 🟢 AGENT CARD (FIXED FOR PROMPT OPINION)
 app.get("/.well-known/agent-card.json", (req, res) => {
     res.status(200).json({
-        openapi: "3.0.0",
-        info: {
-            title: "External Healthcare Agent",
-            version: "1.0.0",
-            description: "External agent using MCP"
-        },
-        servers: [
-            {
-                url: "https://external-agent-production.up.railway.app"
-            }
-        ],
-        paths: {
-            "/ask": {
-                post: {
-                    summary: "Ask healthcare question",
-                    operationId: "ask",
-                    requestBody: {
-                        required: true,
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        question: {
-                                            type: "string"
-                                        }
-                                    },
-                                    required: ["question"]
-                                }
-                            }
-                        }
+        name: "External Healthcare Agent",
+        description: "Healthcare agent using MCP",
+        version: "1.0.0",
+
+        url: "https://external-agent-production.up.railway.app",
+
+        // 🔥 REQUIRED
+        supportedInterfaces: ["a2a"],
+
+        // 🔥 REQUIRED
+        capabilities: {
+            actions: [
+                {
+                    name: "ask",
+                    description: "Ask healthcare questions",
+                    method: "POST",
+                    path: "/ask",
+
+                    input_schema: {
+                        type: "object",
+                        properties: {
+                            question: { type: "string" }
+                        },
+                        required: ["question"]
                     },
-                    responses: {
-                        "200": {
-                            description: "Successful response",
-                            content: {
-                                "application/json": {
-                                    schema: {
-                                        type: "object"
-                                    }
-                                }
-                            }
-                        }
+
+                    output_schema: {
+                        type: "object"
                     }
                 }
-            }
+            ]
         }
     });
 });
-
 // 🟢 MAIN AGENT
 app.post("/ask", async (req, res) => {
     const { question } = req.body;
