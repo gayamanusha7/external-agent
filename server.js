@@ -44,11 +44,9 @@ app.get("/.well-known/agent.json", (req, res) => {
                     name: "ask",
                     description: "Ask healthcare questions",
 
-                    // 🔥 IMPORTANT FIELD NAMES
                     method: "POST",
                     path: "/ask",
 
-                    // 🔥 REQUIRED BY VALIDATOR
                     input_schema: {
                         type: "object",
                         properties: {
@@ -60,7 +58,12 @@ app.get("/.well-known/agent.json", (req, res) => {
                     },
 
                     output_schema: {
-                        type: "object"
+                        type: "object",
+                        properties: {
+                            response: {
+                                type: "object"
+                            }
+                        }
                     }
                 }
             ]
