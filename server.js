@@ -37,10 +37,12 @@ app.get("/.well-known/agent-card.json", (req, res) => {
 
         url: "https://external-agent-production.up.railway.app",
 
-        // 🔥 REQUIRED
-        supportedInterfaces: ["a2a"],
+        supportedInterfaces: [
+            {
+                type: "a2a"
+            }
+        ],
 
-        // 🔥 REQUIRED
         capabilities: {
             actions: [
                 {
