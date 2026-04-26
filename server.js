@@ -2,7 +2,7 @@ import express from "express";
 
 const app = express();
 
-// 🔥 Manual CORS (no dependency needed)
+// 🔥 Manual CORS
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "*");
@@ -28,7 +28,7 @@ app.get("/", (req, res) => {
 });
 
 
-// 🟢 AGENT CARD (FIXED FOR PROMPT OPINION)
+// 🟢 ✅ FIXED AGENT CARD
 app.get("/.well-known/agent-card.json", (req, res) => {
     res.status(200).json({
         name: "External Healthcare Agent",
@@ -37,9 +37,12 @@ app.get("/.well-known/agent-card.json", (req, res) => {
 
         url: "https://external-agent-production.up.railway.app",
 
+        // 🔥 FIXED STRUCTURE
         supportedInterfaces: [
             {
-                type: "a2a"
+                url: "https://external-agent-production.up.railway.app",
+                protocolBinding: "http",
+                protocolVersion: "1.0.0"
             }
         ],
 
@@ -67,6 +70,8 @@ app.get("/.well-known/agent-card.json", (req, res) => {
         }
     });
 });
+
+
 // 🟢 MAIN AGENT
 app.post("/ask", async (req, res) => {
     const { question } = req.body;
@@ -113,7 +118,6 @@ app.post("/ask", async (req, res) => {
 
         const data = await mcpResponse.json();
 
-        // 🔥 Clean response for demo
         const content = data?.result?.content?.[0]?.text;
 
         return res.json({
