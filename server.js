@@ -19,7 +19,7 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 
-// 👉 MCP URL (Render MCP)
+// 👉 MCP URL
 const MCP_URL = "https://healthcare-ai-6sn2.onrender.com";
 
 
@@ -34,14 +34,13 @@ app.get("/health", (req, res) => {
 });
 
 
-// 🟢 ✅ AGENT CARD (FIXED URL → USE RENDER URL)
+// 🟢 Agent Card
 app.get("/.well-known/agent-card.json", (req, res) => {
     res.json({
         name: "External Healthcare Agent",
         description: "Healthcare agent using MCP",
         version: "1.0.0",
 
-        // 🔥 IMPORTANT → replace with YOUR Render URL
         url: "https://external-agent.onrender.com",
 
         defaultInputModes: ["text"],
@@ -88,14 +87,13 @@ app.get("/.well-known/agent-card.json", (req, res) => {
 });
 
 
-// 🔥 MCP CALL (with header forwarding)
+// 🔥 MCP CALL
 async function fetchPatientSummary(headers) {
     const mcpResponse = await fetch(MCP_URL, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
 
-            // 🔥 forward FHIR headers
             ...(headers["x-fhir-server-url"] && {
                 "X-FHIR-Server-URL": headers["x-fhir-server-url"]
             }),
@@ -128,22 +126,29 @@ async function fetchPatientSummary(headers) {
 }
 
 
-// 🟢 🔥 A2A ENTRY (CRITICAL FIX)
+// 🟢 🔥 FINAL A2A ENTRY (FIXED WRAPPER)
 app.post("/", async (req, res) => {
     try {
         console.log("🔥 A2A CALL:", req.body);
 
-        const { method, params, id } = req.body;
+        const { method, id } = req.body;
 
-        // 🔥 handle both formats
         if (method === "ask" || method === "actions/ask") {
 
             const result = await fetchPatientSummary(req.headers);
 
+            // 🔥 THIS IS THE CRITICAL FIX
             return res.json({
                 jsonrpc: "2.0",
                 id: id || 1,
-                result: result || {}
+                result: {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify(result || {})
+                        }
+                    ]
+                }
             });
         }
 
@@ -171,7 +176,7 @@ app.post("/", async (req, res) => {
 });
 
 
-// 🟢 🔥 /ask (for manual testing)
+// 🟢 /ask (manual test)
 app.post("/ask", async (req, res) => {
     try {
         const result = await fetchPatientSummary(req.headers);
