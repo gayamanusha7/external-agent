@@ -1,172 +1,183 @@
 import express from "express";
 
 const app = express();
+
+// 🔥 Manual CORS
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+
+    if (req.method === "OPTIONS") {
+        return res.sendStatus(200);
+    }
+
+    next();
+});
+
 app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
-// 🟢 Root + Health
+// 👉 MCP URL
+const MCP_URL = "https://healthcare-ai-6sn2.onrender.com";
+
+
+// 🟢 Root
 app.get("/", (req, res) => {
-    res.send("MCP Server Running 🚀");
+    res.send("External Agent Running 🚀");
 });
 
-app.get("/healthz", (req, res) => {
-    res.send("OK");
+// 🟢 Health
+app.get("/health", (req, res) => {
+    res.json({ status: "ok" });
 });
 
-// 🟢 MCP Metadata
-app.get("/.well-known/mcp", (req, res) => {
-    res.json({
-        name: "Patient Summary MCP",
+
+// 🟢 Agent Card
+app.get("/.well-known/agent-card.json", (req, res) => {
+    res.status(200).json({
+        name: "External Healthcare Agent",
+        description: "Healthcare agent using MCP",
         version: "1.0.0",
-        tools: [
+
+        url: "https://external-agent-production.up.railway.app",
+
+        defaultInputModes: ["text"],
+        defaultOutputModes: ["text"],
+
+        supportedInterfaces: [
             {
-                name: "get_patient_summary",
-                description: "Fetch patient summary from FHIR",
-                input_schema: {
-                    type: "object",
-                    properties: {},
-                    required: []
-                }
+                url: "https://external-agent-production.up.railway.app",
+                protocolBinding: "http",
+                protocolVersion: "1.0.0"
             }
-        ]
+        ],
+
+        skills: [
+            {
+                id: "ask",
+                name: "Ask Healthcare Question",
+                description: "Fetch patient summary using MCP",
+                tags: ["healthcare", "patient", "mcp"]
+            }
+        ],
+
+        capabilities: {
+            actions: [
+                {
+                    name: "ask",
+                    description: "Ask healthcare questions",
+                    method: "POST",
+                    path: "/ask",
+                    input_schema: {
+                        type: "object",
+                        properties: {
+                            question: { type: "string" }
+                        },
+                        required: ["question"]
+                    },
+                    output_schema: {
+                        type: "object"
+                    }
+                }
+            ]
+        }
     });
 });
 
-// 🔥 Helper: get header safely (case-insensitive)
-function getHeader(req, key) {
-    return (
-        req.headers[key] ||
-        req.headers[key.toLowerCase()] ||
-        req.headers[key.toUpperCase()]
-    );
+
+// 🟢 🔥 FIXED MCP CALL (with header forwarding)
+async function fetchPatientSummary(headers) {
+    const mcpResponse = await fetch(MCP_URL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+
+            // 🔥 Forward FHIR headers
+            ...(headers["x-fhir-server-url"] && {
+                "X-FHIR-Server-URL": headers["x-fhir-server-url"]
+            }),
+            ...(headers["x-fhir-access-token"] && {
+                "X-FHIR-Access-Token": headers["x-fhir-access-token"]
+            }),
+            ...(headers["x-patient-id"] && {
+                "X-Patient-ID": headers["x-patient-id"]
+            })
+        },
+        body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "tools/call",
+            params: {
+                name: "get_patient_summary",
+                arguments: {} // ✅ removed hardcoding
+            }
+        })
+    });
+
+    const data = await mcpResponse.json();
+
+    try {
+        const content = data?.result?.content?.[0]?.text;
+        return content ? JSON.parse(content) : data;
+    } catch {
+        return data;
+    }
 }
 
-// 🔥 MCP JSON-RPC handler
+
+// 🟢 A2A ENTRY
 app.post("/", async (req, res) => {
     try {
-        const { method, params, id } = req.body;
+        console.log("🔥 A2A CALL:", req.body);
 
-        if (method !== "tools/call") {
-            return res.json({
-                jsonrpc: "2.0",
-                id,
-                error: { message: "Unsupported method" }
-            });
-        }
+        const { method, id } = req.body;
 
-        if (params?.name !== "get_patient_summary") {
-            return res.json({
-                jsonrpc: "2.0",
-                id,
-                error: { message: "Unknown tool" }
-            });
-        }
-
-        // 🔥 READ HEADERS (case-safe)
-        const fhirBase = getHeader(req, "x-fhir-server-url");
-        const token = getHeader(req, "x-fhir-access-token");
-        const patientId = getHeader(req, "x-patient-id");
-
-        console.log("📦 HEADERS RECEIVED:", req.headers);
-        console.log("👉 Parsed:", { fhirBase, patientId });
-
-        // 🚨 If headers missing → fallback (for demo safety)
-        if (!fhirBase || !patientId) {
-            console.log("⚠️ Missing FHIR headers — using fallback");
-
-            const fallback = {
-                patient_id: "patient-123",
-                name: "Anusha Gayam",
-                conditions: ["Diabetes"],
-                summary: "Anusha Gayam has Diabetes"
-            };
+        if (method === "ask") {
+            const result = await fetchPatientSummary(req.headers); // ✅ pass headers
 
             return res.json({
                 jsonrpc: "2.0",
-                id,
-                result: {
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify(fallback)
-                        }
-                    ]
-                }
+                id: id || 1,
+                result
             });
         }
-
-        // 🔹 Fetch Patient
-        const patientRes = await fetch(
-            `${fhirBase}/Patient/${patientId}`,
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-
-        const patient = await patientRes.json();
-
-        const name =
-            (patient.name?.[0]?.given?.join(" ") || "") +
-            " " +
-            (patient.name?.[0]?.family || "");
-
-        // 🔹 Fetch Conditions
-        const condRes = await fetch(
-            `${fhirBase}/Condition?patient=${patientId}`,
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-
-        const condData = await condRes.json();
-
-        const conditions =
-            condData.entry?.map(
-                (c) => c.resource.code?.text || "Unknown"
-            ) || [];
-
-        const result = {
-            patient_id: patientId,
-            name: name.trim() || "Unknown",
-            conditions,
-            summary:
-                conditions.length > 0
-                    ? `${name} has ${conditions.join(", ")}`
-                    : `${name} has no recorded conditions`
-        };
 
         return res.json({
             jsonrpc: "2.0",
-            id,
-            result: {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify(result)
-                    }
-                ]
-            }
+            id: id || 1,
+            error: { message: "Unknown method" }
         });
 
     } catch (error) {
-        console.error("❌ ERROR:", error.message);
+        console.error("❌ A2A ERROR:", error.message);
 
         return res.json({
             jsonrpc: "2.0",
             id: 1,
-            error: {
-                message: "Server error",
-                details: error.message
-            }
+            error: { message: "Internal error" }
         });
     }
 });
 
+
+// 🟢 REST endpoint
+app.post("/ask", async (req, res) => {
+    try {
+        const result = await fetchPatientSummary(req.headers); // ✅ pass headers
+
+        return res.json(result);
+
+    } catch (error) {
+        return res.json({
+            status: "ok",
+            message: "fallback response"
+        });
+    }
+});
+
+
 app.listen(PORT, () => {
-    console.log(`MCP Server running on ${PORT}`);
+    console.log(`External agent running on ${PORT}`);
 });
