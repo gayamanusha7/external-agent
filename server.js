@@ -132,10 +132,15 @@ app.post("/", async (req, res) => {
     try {
         console.log("🔥 A2A CALL:", req.body);
 
-        const { method, id } = req.body;
+        const { method, params, id } = req.body;
 
-        if (method === "ask") {
-            const result = await fetchPatientSummary(req.headers); // ✅ pass headers
+        const question =
+            params?.question ||
+            params?.input?.question ||
+            "default";
+
+        if (method === "ask" || method === "actions/ask") {
+            const result = await fetchPatientSummary(req.headers);
 
             return res.json({
                 jsonrpc: "2.0",
@@ -147,7 +152,10 @@ app.post("/", async (req, res) => {
         return res.json({
             jsonrpc: "2.0",
             id: id || 1,
-            error: { message: "Unknown method" }
+            error: {
+                code: -32601,
+                message: "Method not found"
+            }
         });
 
     } catch (error) {
@@ -156,27 +164,13 @@ app.post("/", async (req, res) => {
         return res.json({
             jsonrpc: "2.0",
             id: 1,
-            error: { message: "Internal error" }
+            error: {
+                code: -32603,
+                message: "Internal error"
+            }
         });
     }
 });
-
-
-// 🟢 REST endpoint
-app.post("/ask", async (req, res) => {
-    try {
-        const result = await fetchPatientSummary(req.headers); // ✅ pass headers
-
-        return res.json(result);
-
-    } catch (error) {
-        return res.json({
-            status: "ok",
-            message: "fallback response"
-        });
-    }
-});
-
 
 app.listen(PORT, () => {
     console.log(`External agent running on ${PORT}`);
