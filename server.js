@@ -90,9 +90,15 @@ app.get("/.well-known/agent-card.json", (req, res) => {
 
 // 🟢 MAIN AGENT
 app.post("/ask", async (req, res) => {
-    const question = req.body?.question || "default patient";
-
     try {
+        // 🔥 Support both formats
+        const question =
+            req.body?.question ||
+            req.body?.input?.question ||
+            "default patient";
+
+        console.log("Incoming body:", req.body);
+
         const mcpResponse = await fetch(MCP_URL, {
             method: "POST",
             headers: {
@@ -113,22 +119,25 @@ app.post("/ask", async (req, res) => {
 
         const data = await mcpResponse.json();
 
-        let parsedResponse;
-
+        let parsed;
         try {
             const content = data?.result?.content?.[0]?.text;
-            parsedResponse = content ? JSON.parse(content) : data;
+            parsed = content ? JSON.parse(content) : data;
         } catch {
-            parsedResponse = data;
+            parsed = data;
         }
 
-        return res.json(parsedResponse);
+        // 🔥 RETURN STANDARD FORMAT
+        return res.json({
+            success: true,
+            data: parsed
+        });
 
     } catch (error) {
         console.error("❌ Error:", error.message);
 
         return res.json({
-            status: "ok",
+            success: false,
             message: "fallback response"
         });
     }
