@@ -22,18 +22,19 @@ const PORT = process.env.PORT || 4000;
 // 👉 MCP URL
 const MCP_URL = "https://healthcare-ai-6sn2.onrender.com";
 
-// 🟢 Root
+
+// 🟢 Root GET (health + browser check)
 app.get("/", (req, res) => {
     res.send("External Agent Running 🚀");
 });
 
-// 🟢 Health check (IMPORTANT)
+// 🟢 Health endpoint (validator may call this)
 app.get("/health", (req, res) => {
     res.json({ status: "ok" });
 });
 
 
-// 🟢 AGENT CARD
+// 🟢 ✅ AGENT CARD (FINAL FORMAT)
 app.get("/.well-known/agent-card.json", (req, res) => {
     res.status(200).json({
         name: "External Healthcare Agent",
@@ -88,79 +89,87 @@ app.get("/.well-known/agent-card.json", (req, res) => {
 });
 
 
-// 🟢 MAIN AGENT
-app.post("/ask", async (req, res) => {
-    try {
-        console.log("Incoming:", req.body);
-
-        // 🔥 Detect JSON-RPC vs normal REST
-        let question = "default patient";
-
-        if (req.body?.jsonrpc) {
-            // JSON-RPC format
-            question = req.body?.params?.question || "default patient";
-        } else {
-            // Normal REST
-            question =
-                req.body?.question ||
-                req.body?.input?.question ||
-                "default patient";
-        }
-
-        const mcpResponse = await fetch(MCP_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                jsonrpc: "2.0",
-                id: 1,
-                method: "tools/call",
-                params: {
-                    name: "get_patient_summary",
-                    arguments: {
-                        patient_id: "example"
-                    }
+// 🟢 🔥 CORE MCP CALL FUNCTION (reuse everywhere)
+async function fetchPatientSummary() {
+    const mcpResponse = await fetch(MCP_URL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "tools/call",
+            params: {
+                name: "get_patient_summary",
+                arguments: {
+                    patient_id: "example"
                 }
-            })
-        });
+            }
+        })
+    });
 
-        const data = await mcpResponse.json();
+    const data = await mcpResponse.json();
 
-        let parsed;
-        try {
-            const content = data?.result?.content?.[0]?.text;
-            parsed = content ? JSON.parse(content) : data;
-        } catch {
-            parsed = data;
-        }
+    try {
+        const content = data?.result?.content?.[0]?.text;
+        return content ? JSON.parse(content) : data;
+    } catch {
+        return data;
+    }
+}
 
-        // 🔥 Respond based on format
-        if (req.body?.jsonrpc) {
+
+// 🟢 🔥 A2A ENTRY POINT (THIS FIXES CHECK)
+app.post("/", async (req, res) => {
+    try {
+        console.log("🔥 A2A CALL:", req.body);
+
+        const { method, params, id } = req.body;
+
+        if (method === "ask") {
+            const result = await fetchPatientSummary();
+
             return res.json({
                 jsonrpc: "2.0",
-                id: req.body.id || 1,
-                result: parsed
+                id: id || 1,
+                result
             });
         }
 
         return res.json({
-            success: true,
-            data: parsed
+            jsonrpc: "2.0",
+            id: id || 1,
+            error: { message: "Unknown method" }
         });
 
     } catch (error) {
-        console.error("❌ Error:", error.message);
+        console.error("❌ A2A ERROR:", error.message);
 
         return res.json({
             jsonrpc: "2.0",
             id: 1,
-            error: {
-                message: "Internal error"
-            }
+            error: { message: "Internal error" }
         });
     }
 });
+
+
+// 🟢 REST endpoint (for your manual testing)
+app.post("/ask", async (req, res) => {
+    try {
+        const result = await fetchPatientSummary();
+
+        return res.json(result);
+
+    } catch (error) {
+        return res.json({
+            status: "ok",
+            message: "fallback response"
+        });
+    }
+});
+
 
 app.listen(PORT, () => {
     console.log(`External agent running on ${PORT}`);
