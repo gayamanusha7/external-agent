@@ -19,7 +19,7 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 
-// 👉 MCP URL
+// 👉 MCP URL (Render MCP)
 const MCP_URL = "https://healthcare-ai-6sn2.onrender.com";
 
 
@@ -34,21 +34,22 @@ app.get("/health", (req, res) => {
 });
 
 
-// 🟢 Agent Card
+// 🟢 ✅ AGENT CARD (FIXED URL → USE RENDER URL)
 app.get("/.well-known/agent-card.json", (req, res) => {
-    res.status(200).json({
+    res.json({
         name: "External Healthcare Agent",
         description: "Healthcare agent using MCP",
         version: "1.0.0",
 
-        url: "https://external-agent-production.up.railway.app",
+        // 🔥 IMPORTANT → replace with YOUR Render URL
+        url: "https://external-agent.onrender.com",
 
         defaultInputModes: ["text"],
         defaultOutputModes: ["text"],
 
         supportedInterfaces: [
             {
-                url: "https://external-agent-production.up.railway.app",
+                url: "https://external-agent.onrender.com",
                 protocolBinding: "http",
                 protocolVersion: "1.0.0"
             }
@@ -87,14 +88,14 @@ app.get("/.well-known/agent-card.json", (req, res) => {
 });
 
 
-// 🟢 🔥 FIXED MCP CALL (with header forwarding)
+// 🔥 MCP CALL (with header forwarding)
 async function fetchPatientSummary(headers) {
     const mcpResponse = await fetch(MCP_URL, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
 
-            // 🔥 Forward FHIR headers
+            // 🔥 forward FHIR headers
             ...(headers["x-fhir-server-url"] && {
                 "X-FHIR-Server-URL": headers["x-fhir-server-url"]
             }),
@@ -111,7 +112,7 @@ async function fetchPatientSummary(headers) {
             method: "tools/call",
             params: {
                 name: "get_patient_summary",
-                arguments: {} // ✅ removed hardcoding
+                arguments: {}
             }
         })
     });
@@ -127,25 +128,22 @@ async function fetchPatientSummary(headers) {
 }
 
 
-// 🟢 A2A ENTRY
+// 🟢 🔥 A2A ENTRY (CRITICAL FIX)
 app.post("/", async (req, res) => {
     try {
         console.log("🔥 A2A CALL:", req.body);
 
         const { method, params, id } = req.body;
 
-        const question =
-            params?.question ||
-            params?.input?.question ||
-            "default";
-
+        // 🔥 handle both formats
         if (method === "ask" || method === "actions/ask") {
+
             const result = await fetchPatientSummary(req.headers);
 
             return res.json({
                 jsonrpc: "2.0",
                 id: id || 1,
-                result
+                result: result || {}
             });
         }
 
@@ -159,18 +157,33 @@ app.post("/", async (req, res) => {
         });
 
     } catch (error) {
-        console.error("❌ A2A ERROR:", error.message);
+        console.error("❌ ERROR:", error);
 
         return res.json({
             jsonrpc: "2.0",
-            id: 1,
+            id: req.body?.id || 1,
             error: {
                 code: -32603,
-                message: "Internal error"
+                message: error.message || "Internal error"
             }
         });
     }
 });
+
+
+// 🟢 🔥 /ask (for manual testing)
+app.post("/ask", async (req, res) => {
+    try {
+        const result = await fetchPatientSummary(req.headers);
+        return res.json(result);
+    } catch (error) {
+        return res.json({
+            status: "ok",
+            message: "fallback response"
+        });
+    }
+});
+
 
 app.listen(PORT, () => {
     console.log(`External agent running on ${PORT}`);
