@@ -37,7 +37,11 @@ app.get("/.well-known/agent-card.json", (req, res) => {
 
         url: "https://external-agent-production.up.railway.app",
 
-        // 🔥 FIXED STRUCTURE
+        // 🔥 REQUIRED
+        defaultInputModes: ["text"],
+        defaultOutputModes: ["text"],
+
+        // 🔥 REQUIRED
         supportedInterfaces: [
             {
                 url: "https://external-agent-production.up.railway.app",
@@ -46,6 +50,16 @@ app.get("/.well-known/agent-card.json", (req, res) => {
             }
         ],
 
+        // 🔥 REQUIRED (UI uses this)
+        skills: [
+            {
+                id: "ask",
+                name: "Ask Healthcare Question",
+                description: "Fetch patient summary using MCP"
+            }
+        ],
+
+        // 🔥 REQUIRED (execution uses this)
         capabilities: {
             actions: [
                 {
@@ -70,7 +84,6 @@ app.get("/.well-known/agent-card.json", (req, res) => {
         }
     });
 });
-
 
 // 🟢 MAIN AGENT
 app.post("/ask", async (req, res) => {
