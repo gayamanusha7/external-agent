@@ -91,13 +91,21 @@ app.get("/.well-known/agent-card.json", (req, res) => {
 // 🟢 MAIN AGENT
 app.post("/ask", async (req, res) => {
     try {
-        // 🔥 Support both formats
-        const question =
-            req.body?.question ||
-            req.body?.input?.question ||
-            "default patient";
+        console.log("Incoming:", req.body);
 
-        console.log("Incoming body:", req.body);
+        // 🔥 Detect JSON-RPC vs normal REST
+        let question = "default patient";
+
+        if (req.body?.jsonrpc) {
+            // JSON-RPC format
+            question = req.body?.params?.question || "default patient";
+        } else {
+            // Normal REST
+            question =
+                req.body?.question ||
+                req.body?.input?.question ||
+                "default patient";
+        }
 
         const mcpResponse = await fetch(MCP_URL, {
             method: "POST",
@@ -127,7 +135,15 @@ app.post("/ask", async (req, res) => {
             parsed = data;
         }
 
-        // 🔥 RETURN STANDARD FORMAT
+        // 🔥 Respond based on format
+        if (req.body?.jsonrpc) {
+            return res.json({
+                jsonrpc: "2.0",
+                id: req.body.id || 1,
+                result: parsed
+            });
+        }
+
         return res.json({
             success: true,
             data: parsed
@@ -137,8 +153,11 @@ app.post("/ask", async (req, res) => {
         console.error("❌ Error:", error.message);
 
         return res.json({
-            success: false,
-            message: "fallback response"
+            jsonrpc: "2.0",
+            id: 1,
+            error: {
+                message: "Internal error"
+            }
         });
     }
 });
